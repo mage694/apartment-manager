@@ -1,0 +1,28 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      routes:
+        - id: route1
+          uri: lb://apartment-manager
+          predicates:
+            - Path=/apartmentManager/**
+          filters:
+            - StripPrefix=1
+        - id: route2
+          uri: lb://file-manager
+          predicates:
+            - Path=/fileManager/**
+          filters:
+            - StripPrefix=1
+
+eureka:
+  instance:
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 20

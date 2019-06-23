@@ -1,0 +1,6 @@
+async:
+  executor:
+    namePrefix: ApartmentManager-Executor-
+    maxPoolSize: 10
+    corePoolSize: 5
+    aliveSeconds: 100

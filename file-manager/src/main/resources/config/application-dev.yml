@@ -1,0 +1,18 @@
+spring:
+  http:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  data:
+    mongodb:
+      host: 127.0.0.1
+      port: 27017
+      database: file_manager_dev
+file:
+  upload:
+    path: /Users/chenwei/Workspace/upload
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8010/eureka/

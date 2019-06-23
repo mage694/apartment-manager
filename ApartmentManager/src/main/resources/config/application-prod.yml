@@ -1,0 +1,46 @@
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8000/eureka/
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/apartment_manager?useUnicode=true&characterEncoding=utf8&autoReconnect=true&useSSL=true&serverTimeZone=GMT%2B8
+    username: root
+    password: root1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: 50000
+      idle-timeout: 300000
+      max-lifetime: 900000
+      maximum-pool-size: 15
+      minimum-idle: 8
+      pool-name: apartment-manager-mysql-pool
+      connection-test-query: SELECT 1
+  jpa:
+    database: MYSQL
+    hibernate:
+      ddl-auto: update
+      naming-strategy: org.hibernate.cfg.ImprovedNamingStrategy
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5Dialect
+  redis:
+    database: 0
+    host: 127.0.0.1
+    port: 6379
+    password:
+    max-active: 8
+    max-wait: 1
+    max-idle: 8
+    min-idle: 0
+    timeout: 3600
+  data:
+    mongodb:
+      host: 127.0.0.1
+      port: 27017
+      database: apartment_manager
+    redis:
+      repositories:
+        enabled: false

@@ -1,0 +1,28 @@
+server:
+  port: 9999
+
+eureka:
+  instance:
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 20
+
+spring:
+  mvc:
+    servlet:
+      load-on-startup: 1
+  profiles:
+    active: dev
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+      FAIL_ON_EMPTY_BEANS: false
+  application:
+    name: file-manager
+  resources:
+    static-locations: classpath:/META-INF/resources/,classpath:/resources/,classpath:/static/,classpath:/public/,file:/Users/chenwei/Workspace/Upload,file:/Users/chenwei/Upload
+
+platform:
+  baidu:
+    appId: 15995149
+    apiKey: qfUhN1RU4tIvIKGr9fjZ5bra
+    secret: xVjr97v88Ih9PE1G0zDDCtG5qkGXYFzd
