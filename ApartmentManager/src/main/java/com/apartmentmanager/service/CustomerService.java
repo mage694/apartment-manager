@@ -15,10 +15,9 @@ import com.apartmentmanager.po.enrollment.EnrollmentHistory;
 import com.apartmentmanager.po.payment.PaymentHistory;
 import com.apartmentmanager.po.payment.ext.PaymentHistoryExtension;
 import com.apartmentmanager.po.payment.ext.PremiumPayment;
-import com.apartmentmanager.po.payment.ext.PremiumPaymentByDate;
-import com.apartmentmanager.po.payment.ext.PremiumPaymentByMeasurement;
 import com.apartmentmanager.remote.FileRemoteClient;
 import com.apartmentmanager.service.datecalculator.ExpiredDateCalculator;
+import com.apartmentmanager.service.premiumresolver.ApartmentPremiumParamsResolver;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQuery;
@@ -37,7 +36,6 @@ import org.springframework.util.CollectionUtils;
 
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,6 +93,9 @@ public class CustomerService {
     @Autowired
     private JPAQueryFactory queryFactory;
 
+    @Autowired
+    private ApartmentPremiumParamsResolver premiumParamsResolver;
+
     public CustomerInfoView get(Integer customerId) {
         CustomerInfo po = customerDao.findById(customerId).orElseThrow(IllegalArgumentException::new);
         BeanCopier copier = BeanCopier.create(CustomerInfo.class, CustomerInfoView.class, false);
@@ -138,9 +139,9 @@ public class CustomerService {
         example.getProbe().getCustomer().setId(customerId);
         List<ContactInfo> contacts = contactInfoDao.findAll(example);
         updateForm.getContacts().forEach((k, v) ->
-            contacts.stream()
-                    .filter(c -> c.getContactType() == ContactType.getFromCode(k))
-                    .forEach(c -> c.setDetail(v)));
+                contacts.stream()
+                        .filter(c -> c.getContactType() == ContactType.getFromCode(k))
+                        .forEach(c -> c.setDetail(v)));
         contactInfoDao.saveAll(contacts);
 
         if (!CollectionUtils.isEmpty(updateForm.getFileIds())) {
@@ -175,25 +176,10 @@ public class CustomerService {
         paymentHistory.setToDate(dateCalculator.calculate(enrollment.getEnrollDate(), paymentHistory.getPaymentType(), enrollment.getQuantity()));
         ApartmentPaymentSummary summary = new ApartmentPaymentSummary();
         summary.setTotalPrice(BigDecimal.valueOf(enrollment.getQuantity()).multiply(enrollment.getConcertedPrice()).add(enrollment.getDeposit()));
-        BeanCopier beanCopier = BeanCopier.create(ApartmentPremiumParams.class, PremiumPayment.class, false);
         List<PremiumPayment> premiumPayments = enrollment.getPremiums().stream()
                 .filter(ApartmentPremiumParams::getSelected)
-                .map(p -> {
-                    if (p.getCurrentMeasurement() != null) {
-                        PremiumPaymentByMeasurement premiumPayment = new PremiumPaymentByMeasurement();
-                        beanCopier.copy(p, premiumPayment, null);
-                        premiumPayment.setCurrentMeasurement(p.getCurrentMeasurement());
-                        premiumPayment.setPremiumTotal(BigDecimal.ZERO);
-                        premiumPayment.setCreatedTime(LocalDateTime.now());
-                        return premiumPayment;
-                    } else {
-                        PremiumPaymentByDate premiumPayment = new PremiumPaymentByDate();
-                        beanCopier.copy(p, premiumPayment, null);
-                        premiumPayment.setToDate(LocalDate.now());
-                        premiumPayment.setCreatedTime(LocalDateTime.now());
-                        return premiumPayment;
-                    }
-                }).collect(Collectors.toList());
+                .map(p -> premiumParamsResolver.toPremiumPayment(p, (pa, pp) -> pp.setCreatedTime(LocalDateTime.now()), (pa, pp) -> pp.setPremiumTotal(BigDecimal.ZERO)))
+                .collect(Collectors.toList());
         summary.setPremiumPayments(premiumPayments);
         saveApartmentPayment(paymentHistory, enrollment.getReceipts(), summary);
 

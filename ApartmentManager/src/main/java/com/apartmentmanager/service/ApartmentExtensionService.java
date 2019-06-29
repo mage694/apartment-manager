@@ -1,15 +1,13 @@
 package com.apartmentmanager.service;
 
 import com.apartmentmanager.dao.ext.ApartmentExtensionDao;
-import com.apartmentmanager.po.apartment.ext.ApartmentInfoExtension;
-import com.apartmentmanager.po.apartment.ext.ApartmentPremium;
-import com.apartmentmanager.po.apartment.ext.ApartmentPremiumByDate;
-import com.apartmentmanager.po.apartment.ext.ApartmentPremiumByMeasurement;
 import com.apartmentmanager.dto.apartment.ApartmentInfoView;
 import com.apartmentmanager.dto.apartment.ApartmentPremiumParams;
+import com.apartmentmanager.po.apartment.ext.ApartmentInfoExtension;
+import com.apartmentmanager.po.apartment.ext.ApartmentPremium;
+import com.apartmentmanager.service.premiumresolver.ApartmentPremiumParamsResolver;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cglib.beans.BeanCopier;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -22,25 +20,14 @@ public class ApartmentExtensionService {
     @Autowired
     private ApartmentExtensionDao apartmentExtensionDao;
 
+    @Autowired
+    private ApartmentPremiumParamsResolver apartmentPremiumParamsResolver;
+
     @Transactional
     public void saveApartmentExtension(Integer apartmentId, List<ApartmentPremiumParams> premiums) {
         ApartmentInfoExtension extension = apartmentExtensionDao.findById(apartmentId).orElseGet(ApartmentInfoExtension::new);
         extension.setApartmentId(apartmentId);
-
-        BeanCopier copier = BeanCopier.create(ApartmentPremiumParams.class, ApartmentPremium.class, false);
-        List<? extends ApartmentPremium> premiumList= premiums.stream().map(p -> {
-            if (p.getCurrentMeasurement() != null) {
-                ApartmentPremiumByMeasurement premium = new ApartmentPremiumByMeasurement();
-                copier.copy(p, premium, null);
-                premium.setCurrentMeasurement(p.getCurrentMeasurement());
-                return premium;
-            } else {
-                ApartmentPremiumByDate premium = new ApartmentPremiumByDate();
-                copier.copy(p, premium, null);
-                premium.setExpiredDate(p.getExpiredDate());
-                return premium;
-            }
-        }).collect(Collectors.toList());
+        List<? extends ApartmentPremium> premiumList = premiums.stream().map(apartmentPremiumParamsResolver::toApartmentPremium).collect(Collectors.toList());
         extension.setPremiums(premiumList);
         apartmentExtensionDao.save(extension);
     }

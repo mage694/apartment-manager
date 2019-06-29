@@ -16,10 +16,9 @@ import com.apartmentmanager.po.enrollment.EnrollmentHistory;
 import com.apartmentmanager.po.payment.PaymentHistory;
 import com.apartmentmanager.po.payment.ext.PaymentHistoryExtension;
 import com.apartmentmanager.po.payment.ext.PremiumPayment;
-import com.apartmentmanager.po.payment.ext.PremiumPaymentByDate;
-import com.apartmentmanager.po.payment.ext.PremiumPaymentByMeasurement;
 import com.apartmentmanager.remote.FileRemoteClient;
 import com.apartmentmanager.service.datecalculator.IDateCalculator;
+import com.apartmentmanager.service.premiumresolver.ApartmentPremiumParamsResolver;
 import com.apartmentmanager.service.util.ApartmentInfoConverter;
 import com.apartmentmanager.service.util.PaymentHistoryConverter;
 import com.querydsl.core.Tuple;
@@ -35,7 +34,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cglib.beans.BeanCopier;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -94,6 +92,9 @@ public class ApartmentService {
 
     @Autowired
     private IDateCalculator dateCalculator;
+
+    @Autowired
+    private ApartmentPremiumParamsResolver apartmentPremiumParamsResolver;
 
     @Cacheable(value = LIST_APARTMENTS_CACHE_KEY, key = "#id")
     public ApartmentInfoView getApartment(Integer id) {
@@ -273,30 +274,9 @@ public class ApartmentService {
             if (!CollectionUtils.isEmpty(apartmentForm.getPremiums())) {
                 PaymentHistoryExtension latestPaymentExt = paymentHistoryService.getPaymentHistoryExtensionDao().findById(latestPayment.getId()).orElseThrow(IllegalArgumentException::new);
                 if (!CollectionUtils.isEmpty(latestPaymentExt.getPremiumPayments())) {
-                    apartmentForm.getPremiums().forEach(p -> latestPaymentExt.getPremiumPayments().stream()
-                            .filter(pp -> p.getPremiumFlag().equals((pp.getPremiumFlag())))
-                            .forEach(pp -> {
-                                if (pp instanceof PremiumPaymentByMeasurement) {
-                                    ((PremiumPaymentByMeasurement) pp).setCurrentMeasurement(p.getCurrentMeasurement());
-                                } else if (pp instanceof PremiumPaymentByDate) {
-                                    ((PremiumPaymentByDate) pp).setToDate(p.getExpiredDate());
-                                }
-                            }));
+                    apartmentPremiumParamsResolver.resolve(apartmentForm.getPremiums(), latestPaymentExt.getPremiumPayments());
                 } else {
-                    BeanCopier copier = BeanCopier.create(ApartmentPremiumParams.class, PremiumPayment.class, false);
-                    List<PremiumPayment> pps = apartmentForm.getPremiums().stream().map(p -> {
-                        if (p.getCurrentMeasurement() != null) {
-                            PremiumPaymentByMeasurement ppm = new PremiumPaymentByMeasurement();
-                            ppm.setCurrentMeasurement(p.getCurrentMeasurement());
-                            copier.copy(p, ppm, null);
-                            return ppm;
-                        } else {
-                            PremiumPaymentByDate ppd = new PremiumPaymentByDate();
-                            ppd.setToDate(p.getExpiredDate());
-                            copier.copy(p, ppd, null);
-                            return ppd;
-                        }
-                    }).collect(Collectors.toList());
+                    List<PremiumPayment> pps = apartmentForm.getPremiums().stream().map(apartmentPremiumParamsResolver::toPremiumPayment).collect(Collectors.toList());
                     latestPaymentExt.setPremiumPayments(pps);
                 }
                 paymentHistoryService.getPaymentHistoryExtensionDao().save(latestPaymentExt);

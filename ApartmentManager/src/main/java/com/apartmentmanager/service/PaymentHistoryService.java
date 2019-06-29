@@ -12,10 +12,9 @@ import com.apartmentmanager.dto.payment.PaymentHistoryFilter;
 import com.apartmentmanager.dto.payment.PaymentHistoryPageRequest;
 import com.apartmentmanager.dto.payment.PaymentHistoryView;
 import com.apartmentmanager.po.payment.ext.PaymentHistoryExtension;
-import com.apartmentmanager.po.payment.ext.PremiumPaymentByDate;
-import com.apartmentmanager.po.payment.ext.PremiumPaymentByMeasurement;
 import com.apartmentmanager.service.datecalculator.IDateCalculator;
 import com.apartmentmanager.service.premiumprocessor.PremiumProcessorDelegate;
+import com.apartmentmanager.service.premiumresolver.ApartmentPremiumParamsResolver;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQuery;
@@ -60,6 +59,9 @@ public class PaymentHistoryService {
 
     @Autowired
     private JPAQueryFactory queryFactory;
+
+    @Autowired
+    private ApartmentPremiumParamsResolver premiumParamsResolver;
 
     public Page<PaymentHistoryView> getPayments(PaymentHistoryPageRequest pageRequest) {
         JPAQuery<Tuple> query = queryFactory
@@ -124,18 +126,7 @@ public class PaymentHistoryService {
         PaymentHistoryExtension extension = paymentHistoryExtensionDao.findById(paymentId).orElseThrow(IllegalArgumentException::new);
         extension.setReceipts(form.getReceipts());
         extension.setTotalPrice(form.getTotalPrice());
-        form.getPremiums().stream().forEach(p -> extension.getPremiumPayments().stream()
-                .filter(pp -> p.getPremiumFlag().equals(pp.getPremiumFlag()))
-                .findAny().ifPresent(pp -> {
-                    if (pp instanceof PremiumPaymentByMeasurement) {
-                        PremiumPaymentByMeasurement ppm = (PremiumPaymentByMeasurement) pp;
-                        ppm.setCurrentMeasurement(p.getCurrentMeasurement());
-                    } else {
-                        PremiumPaymentByDate ppd = (PremiumPaymentByDate) pp;
-                        ppd.setToDate(p.getExpiredDate());
-                    }
-                })
-        );
+        premiumParamsResolver.resolve(form.getPremiums(), extension.getPremiumPayments());
         paymentHistoryExtensionDao.save(extension);
     }
 
@@ -176,6 +167,7 @@ public class PaymentHistoryService {
     /**
      * Find first and last payment id tuple via apartmentIds.
      * <p>index 0: latestPaymentId, index 1: firstPaymentId.</p>
+     *
      * @param apartmentIdSet
      * @return
      */
