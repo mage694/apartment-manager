@@ -12,30 +12,23 @@ import org.springframework.cglib.beans.BeanCopier;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
+import static com.apartmentmanager.constant.PremiumPaymentPredicateEnum.PREMIUM_PAYMENT_BY_DATE;
+import static com.apartmentmanager.constant.PremiumPaymentPredicateEnum.PREMIUM_PAYMENT_BY_MEASUREMENT;
+
 @Service
-public class ApartmentPremiumParamsResolver {
-    private Map<PremiumPaymentPredicateEnum, BiConsumer<PremiumPayment, ApartmentPremiumParams>> resolvers;
+public class ApartmentPremiumParamsResolver extends AbstractPremiumParamsResolver {
 
-    public ApartmentPremiumParamsResolver() {
-        resolvers = new HashMap<>();
-        resolvers.put(PremiumPaymentPredicateEnum.PREMIUM_PAYMENT_BY_MEASUREMENT, (pp, p) -> ((PremiumPaymentByMeasurement) pp).setCurrentMeasurement(p.getCurrentMeasurement()));
-        resolvers.put(PremiumPaymentPredicateEnum.PREMIUM_PAYMENT_BY_DATE, (pp, p) -> ((PremiumPaymentByDate) pp).setToDate(p.getExpiredDate()));
-    }
-
-    public ApartmentPremiumParamsResolver(Map<PremiumPaymentPredicateEnum, BiConsumer<PremiumPayment, ApartmentPremiumParams>> resolvers) {
-        this.resolvers = resolvers;
-    }
-
-    public void resolve(List<ApartmentPremiumParams> premiumParams, List<? extends PremiumPayment> premiumPayments) {
-        premiumParams.forEach(p -> premiumPayments.stream()
-                .filter(pp -> p.getPremiumFlag().equals((pp.getPremiumFlag())))
-                .forEach(pp -> resolvers.get(PremiumPaymentPredicateEnum.get(pp)).accept(pp, p)));
+    @Override
+    protected Map<PremiumPaymentPredicateEnum, BiConsumer<PremiumPayment, ApartmentPremiumParams>> resolvers() {
+        Map<PremiumPaymentPredicateEnum, BiConsumer<PremiumPayment, ApartmentPremiumParams>> resolvers = new HashMap<>();
+        resolvers.put(PREMIUM_PAYMENT_BY_MEASUREMENT, new SimplePremiumByMeasurementConsumer());
+        resolvers.put(PREMIUM_PAYMENT_BY_DATE, new SimplePremiumByDateConsumer());
+        return resolvers;
     }
 
     public ApartmentPremium toApartmentPremium(ApartmentPremiumParams p, BiConsumer<ApartmentPremiumParams, ApartmentPremium>... extraHandlers) {
@@ -69,6 +62,20 @@ public class ApartmentPremiumParamsResolver {
             copier.copy(p, ppd, null);
             Optional.ofNullable(extraHandlers).ifPresent(hs -> Stream.of(hs).forEach(h -> h.accept(p, ppd)));
             return ppd;
+        }
+    }
+
+    private class SimplePremiumByMeasurementConsumer implements BiConsumer<PremiumPayment, ApartmentPremiumParams> {
+        @Override
+        public void accept(PremiumPayment premiumPayment, ApartmentPremiumParams premiumParams) {
+            ((PremiumPaymentByMeasurement) premiumPayment).setCurrentMeasurement(premiumParams.getCurrentMeasurement());
+        }
+    }
+
+    private class SimplePremiumByDateConsumer implements BiConsumer<PremiumPayment, ApartmentPremiumParams> {
+        @Override
+        public void accept(PremiumPayment premiumPayment, ApartmentPremiumParams premiumParams) {
+            ((PremiumPaymentByDate) premiumPayment).setToDate(premiumParams.getExpiredDate());
         }
     }
 }

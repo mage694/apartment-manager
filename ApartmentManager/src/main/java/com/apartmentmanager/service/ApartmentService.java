@@ -270,17 +270,7 @@ public class ApartmentService {
                 }
                 paymentHistoryService.getPaymentHistoryDao().saveAll(paymentHistories);
             }
-
-            if (!CollectionUtils.isEmpty(apartmentForm.getPremiums())) {
-                PaymentHistoryExtension latestPaymentExt = paymentHistoryService.getPaymentHistoryExtensionDao().findById(latestPayment.getId()).orElseThrow(IllegalArgumentException::new);
-                if (!CollectionUtils.isEmpty(latestPaymentExt.getPremiumPayments())) {
-                    apartmentPremiumParamsResolver.resolve(apartmentForm.getPremiums(), latestPaymentExt.getPremiumPayments());
-                } else {
-                    List<PremiumPayment> pps = apartmentForm.getPremiums().stream().map(apartmentPremiumParamsResolver::toPremiumPayment).collect(Collectors.toList());
-                    latestPaymentExt.setPremiumPayments(pps);
-                }
-                paymentHistoryService.getPaymentHistoryExtensionDao().save(latestPaymentExt);
-            }
+            updatePremiumPayments(apartmentForm.getPremiums(), latestPayment.getId());
         } else {
             apartmentExtensionService.saveApartmentExtension(po.getId(), apartmentForm.getPremiums());
         }
@@ -315,6 +305,34 @@ public class ApartmentService {
                     }));
 
         });
+    }
+
+    @Transactional
+    private void updatePremiumPayments(List<ApartmentPremiumParams> premiumParamsList, Integer latestPaymentId) {
+        PaymentHistoryExtension latestPaymentExt = paymentHistoryService.getPaymentHistoryExtensionDao().findById(latestPaymentId).orElseThrow(IllegalArgumentException::new);
+        apartmentPremiumParamsResolver.resolve(premiumParamsList, latestPaymentExt.getPremiumPayments()); //Update firstly, then delete
+        if (premiumParamsList.size() < latestPaymentExt.getPremiumPayments().size()) { //Means user want to delete premium
+            if (premiumParamsList.size() > 0) {
+                Iterator<? extends PremiumPayment> premiumPaymentIt = latestPaymentExt.getPremiumPayments().iterator();
+                while (premiumPaymentIt.hasNext()) {
+                    PremiumPayment pp = premiumPaymentIt.next();
+                    boolean noneMatch = premiumParamsList.stream().noneMatch(p -> p.getPremiumFlag().equals(pp.getPremiumFlag()));
+                    if (noneMatch) {
+                        premiumPaymentIt.remove();
+                    }
+                }
+            } else {
+                latestPaymentExt.setPremiumPayments(Collections.emptyList());
+            }
+        } else if (premiumParamsList.size() > latestPaymentExt.getPremiumPayments().size()) {
+            List latestPremiumPayments = latestPaymentExt.getPremiumPayments();
+            List<? extends PremiumPayment> newPremiumPayments = premiumParamsList.stream()
+                    .filter(p -> latestPaymentExt.getPremiumPayments().stream().noneMatch(pp -> p.getPremiumFlag().equals(pp.getPremiumFlag())))
+                    .map(apartmentPremiumParamsResolver::toPremiumPayment).collect(Collectors.toList());
+            latestPremiumPayments.addAll(newPremiumPayments);
+        }
+        paymentHistoryService.getPaymentHistoryExtensionDao().save(latestPaymentExt);
+
     }
 
     @Transactional
