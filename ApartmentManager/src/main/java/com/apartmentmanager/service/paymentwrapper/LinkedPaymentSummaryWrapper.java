@@ -20,7 +20,7 @@ public class LinkedPaymentSummaryWrapper implements IPaymentSummaryWrapper {
 
     @Override
     public void wrap(Integer apartmentId, Integer customerId, CustomerPayment payment, ApartmentPaymentSummary summary) {
-        beanProvider.getBeansWithExclusions(IPaymentSummaryWrapper.class, this)
+        beanProvider.getBeans(IPaymentSummaryWrapper.class, this)
                 .forEach(w -> w.wrap(apartmentId, customerId, payment, summary));
     }
 }
