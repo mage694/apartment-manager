@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.List;
 
+@Order(2)
 @Service("latestPaymentWrapper")
 public class LatestPaymentWrapper implements IPaymentSummaryWrapper {
     @Autowired

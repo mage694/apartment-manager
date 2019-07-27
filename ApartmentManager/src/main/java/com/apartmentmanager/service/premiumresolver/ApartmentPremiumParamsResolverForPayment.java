@@ -33,6 +33,8 @@ public class ApartmentPremiumParamsResolverForPayment extends AbstractPremiumPar
             ppm.setPremiumFlag(currentPremium.getPremiumFlag());
             ppm.setPreviousMeasurement(ppm.getCurrentMeasurement());
             ppm.setCurrentMeasurement(currentPremium.getCurrentMeasurement());
+            ppm.setPremiumType(currentPremium.getPremiumType());
+            ppm.setPaymentType(currentPremium.getPaymentType());
             ppm.setUnitPrice(currentPremium.getUnitPrice());
         }
     }
@@ -45,6 +47,8 @@ public class ApartmentPremiumParamsResolverForPayment extends AbstractPremiumPar
             ppd.setPremiumFlag(currentPremium.getPremiumFlag());
             ppd.setFromDate(ppd.getToDate());
             ppd.setToDate(currentPremium.getExpiredDate());
+            ppd.setPremiumType(currentPremium.getPremiumType());
+            ppd.setPaymentType(currentPremium.getPaymentType());
         }
     }
 }
