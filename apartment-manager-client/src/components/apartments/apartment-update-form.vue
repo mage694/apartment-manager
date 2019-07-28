@@ -220,7 +220,6 @@ export default {
         this.apartmentForm.premiums = response.data.latestPayment.extension.premiumPayments.map(
           p => {
             return {
-              paymentType: p.premiumType,
               premiumFlag: p.premiumFlag,
               unitPrice: p.unitPrice,
               currentMeasurement: p.currentMeasurement
@@ -232,14 +231,11 @@ export default {
       }
 
       this.apartmentForm.premiums.forEach(p => {
-        this.$set(p, "paymentType", "S");
-        switch (p.premiumType) {
-          case "ELECTRICITY":
-            this.$set(p, "premiumType", "E");
-            break;
-          case "WATER":
-            this.$set(p, "premiumType", "W");
-            break;
+        this.$set(p, "paymentType", p.hasOwnProperty("currentMeasurement") ? "S" : "M");
+        if (p.premiumFlag.indexOf("E_") >= 0) {
+          this.$set(p, "premiumType", "E");
+        } else {
+          this.$set(p, "premiumType", "W");
         }
       });
       this.eleMeasurementIndexCounter = this.eleMeasurements.length;
